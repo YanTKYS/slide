@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iSlide</title>
+<!-- favicon.ico への余計なリクエストを出さないための空アイコン -->
+<link rel="icon" href="data:,">
+
+<style>
+/* ------------------------------------------------------------------
+   アプリ本体のUI。スライドの見た目はMarp Coreが生成するCSSが担当するため、
+   ここではツールバー・エディタ・分割レイアウトだけを定義する。
+   ------------------------------------------------------------------ */
+
+:root {
+  --color-bg: #f4f5f7;
+  --color-surface: #ffffff;
+  --color-border: #c9ced6;
+  --color-border-strong: #9aa2ae;
+  --color-text: #1f2430;
+  --color-text-muted: #5b6472;
+  --color-accent: #1f5fa9;
+  --color-danger: #a32222;
+  --font-ui: "Segoe UI", "Yu Gothic UI", "Hiragino Sans", Meiryo, sans-serif;
+  --font-mono: Consolas, "SF Mono", "Yu Gothic UI", Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ---- ツールバー ---- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.toolbar__title {
+  margin: 0 6px 0 2px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar__spacer { flex: 1; }
+
+.toolbar__label {
+  color: var(--color-text-muted);
+}
+
+button,
+select {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 3px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+select { padding: 0 4px; }
+
+button:hover,
+select:hover { background: #eef1f5; }
+
+button:active { background: #e2e6ec; }
+
+button:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -1px;
+}
+
+button.is-primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #ffffff;
+}
+
+button.is-primary:hover { background: #1b5496; }
+
+/* ---- 作業領域（左:エディタ / 右:プレビュー） ---- */
+
+.workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane--editor {
+  width: 44%;
+  background: var(--color-surface);
+}
+
+.pane--preview {
+  flex: 1;
+}
+
+.pane__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 24px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--color-border);
+  background: #eceef2;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.pane__status {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+#editor {
+  flex: 1;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  resize: none;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+
+#preview {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #525659;
+}
+
+/* ---- 分割バー ---- */
+
+.splitter {
+  flex: 0 0 5px;
+  border-left: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  background: #e4e7ec;
+  cursor: col-resize;
+}
+
+.splitter:hover { background: #d3d8e0; }
+
+body.is-dragging { user-select: none; }
+body.is-dragging #preview { pointer-events: none; }
+
+/* ---- エラー表示 ---- */
+
+.errorbar {
+  display: none;
+  padding: 6px 12px;
+  border-top: 1px solid #e0b4b4;
+  background: #fdf0f0;
+  color: var(--color-danger);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  max-height: 8em;
+  overflow: auto;
+}
+
+.errorbar.is-visible { display: block; }
+
+/* ---- プレゼン表示 ---- */
+
+body.is-presenting .toolbar,
+body.is-presenting .pane--editor,
+body.is-presenting .splitter,
+body.is-presenting .pane--preview .pane__head {
+  display: none;
+}
+
+body.is-presenting .pane--preview {
+  background: #000000;
+}
+
+.presenter-hint {
+  display: none;
+  position: fixed;
+  right: 12px;
+  bottom: 10px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #ffffff;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+body.is-presenting .presenter-hint { display: block; }
+</style>
+</head>
+
+<body>
+
+<header class="toolbar">
+  <h1 class="toolbar__title">iSlide</h1>
+
+  <div class="toolbar__group">
+    <button type="button" id="btn-new">新規</button>
+    <button type="button" id="btn-open">開く</button>
+    <button type="button" id="btn-save-md">Markdown保存</button>
+    <button type="button" id="btn-export-html">HTML出力</button>
+  </div>
+
+  <div class="toolbar__group">
+    <label class="toolbar__label" for="theme-select">テーマ</label>
+    <select id="theme-select">
+      <option value="default">default</option>
+      <option value="gaia">gaia</option>
+      <option value="uncover">uncover</option>
+    </select>
+  </div>
+
+  <div class="toolbar__spacer"></div>
+
+  <div class="toolbar__group">
+    <button type="button" id="btn-print">印刷</button>
+    <button type="button" id="btn-present" class="is-primary">プレゼン表示</button>
+  </div>
+</header>
+
+<main class="workspace">
+  <section class="pane pane--editor">
+    <div class="pane__head">
+      <span>Markdown</span>
+      <span class="pane__status" id="editor-status"></span>
+    </div>
+    <textarea id="editor" spellcheck="false" aria-label="Marp Markdown"></textarea>
+    <div class="errorbar" id="errorbar" role="alert"></div>
+  </section>
+
+  <div class="splitter" id="splitter" role="separator" aria-orientation="vertical"></div>
+
+  <section class="pane pane--preview">
+    <div class="pane__head">
+      <span>Preview</span>
+      <span class="pane__status" id="preview-status"></span>
+    </div>
+    <iframe id="preview" title="スライドプレビュー"></iframe>
+  </section>
+</main>
+
+<div class="presenter-hint" id="presenter-hint"></div>
+
+<input type="file" id="file-input" accept=".md,.markdown,text/markdown" hidden>
+
+<!-- ------------------------------------------------------------------
+     プレビュー用iframeの中身。
+     Marpが生成したCSS/HTMLをこのドキュメントへ流し込み、
+     親ページとはpostMessageだけでやり取りする（file:// でも動作させるため）。
+     ------------------------------------------------------------------ -->
+<template id="preview-document">
+  <style id="marp-style"></style>
+  <style>
+    html, body { margin: 0; padding: 0; }
+    body {
+      padding: 16px;
+      background: #525659;
+      overflow-x: hidden;
+    }
+    #slides {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+    #slides .marpit {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    /* Marp標準の svg { width:100vw; height:100vh } を一覧表示向けに上書きする */
+    #slides .marpit > svg[data-marpit-svg] {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #ffffff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+    }
+
+    /* プレゼン表示：現在のスライドだけを画面いっぱいに表示する */
+    body.is-presenting {
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+      background: #000000;
+    }
+    body.is-presenting #slides { max-width: none; }
+    body.is-presenting #slides .marpit { display: block; }
+    body.is-presenting #slides .marpit > svg[data-marpit-svg] { display: none; }
+    body.is-presenting #slides .marpit > svg[data-marpit-svg].is-current {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background: transparent;
+      box-shadow: none;
+    }
+  </style>
+
+  <div id="slides"></div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    var styleElement = document.getElementById('marp-style');
+    var slidesElement = document.getElementById('slides');
+    var currentIndex = 0;
+
+    /* Marp Coreのブラウザスクリプトは描画のたびに実行されるが、
+       カスタム要素は一度しか登録できない。二重登録の例外で以降の処理
+       （Safari向けの is= 置き換えなど）が止まらないよう、登録済みは読み飛ばす。 */
+    var defineCustomElement = customElements.define.bind(customElements);
+    customElements.define = function (name, constructor, options) {
+      if (customElements.get(name)) return;
+      defineCustomElement(name, constructor, options);
+    };
+
+    function slides() {
+      return slidesElement.querySelectorAll('svg[data-marpit-svg]');
+    }
+
+    /* innerHTMLで挿入した<script>は実行されないため、同内容の要素へ置き換える。
+       Marp Coreが埋め込む自動縮小スクリプトはこれで有効になる。 */
+    function activateScripts(root) {
+      root.querySelectorAll('script').forEach(function (original) {
+        var script = document.createElement('script');
+        Array.prototype.forEach.call(original.attributes, function (attribute) {
+          script.setAttribute(attribute.name, attribute.value);
+        });
+        script.textContent = original.textContent;
+        original.parentNode.replaceChild(script, original);
+      });
+    }
+
+    function updateCurrent(index) {
+      var all = slides();
+      if (all.length === 0) {
+        currentIndex = 0;
+      } else {
+        currentIndex = Math.min(Math.max(index, 0), all.length - 1);
+      }
+      all.forEach(function (slide, i) {
+        slide.classList.toggle('is-current', i === currentIndex);
+      });
+      post({ type: 'position', index: currentIndex, total: all.length });
+    }
+
+    function render(message) {
+      var scrollTop = document.scrollingElement.scrollTop;
+      styleElement.textContent = message.css;
+      slidesElement.innerHTML = message.html;
+      activateScripts(slidesElement);
+      document.scrollingElement.scrollTop = scrollTop;
+      updateCurrent(currentIndex);
+    }
+
+    function setPresenting(presenting) {
+      document.body.classList.toggle('is-presenting', presenting);
+      if (presenting) {
+        scrollCurrentIntoView();
+      }
+    }
+
+    function scrollCurrentIntoView() {
+      var slide = slides()[currentIndex];
+      if (slide) {
+        slide.scrollIntoView({ block: 'center' });
+      }
+    }
+
+    function post(message) {
+      parent.postMessage(message, '*');
+    }
+
+    window.addEventListener('message', function (event) {
+      var message = event.data;
+      if (!message || typeof message !== 'object') return;
+
+      if (message.type === 'render') {
+        render(message);
+      } else if (message.type === 'present') {
+        setPresenting(message.presenting);
+      } else if (message.type === 'goto') {
+        updateCurrent(message.index);
+        if (!document.body.classList.contains('is-presenting')) {
+          scrollCurrentIntoView();
+        }
+      }
+    });
+
+    /* iframe側にフォーカスがある場合でも親でキー操作を処理できるように転送する */
+    window.addEventListener('keydown', function (event) {
+      post({ type: 'keydown', key: event.key, shiftKey: event.shiftKey });
+    });
+
+    window.addEventListener('click', function () {
+      post({ type: 'click' });
+    });
+
+    post({ type: 'ready' });
+  }());
+  </script>
+</template>
+
+<!-- Marp Core（ビルド済み・同梱）。実行時に外部へ通信しない。 -->
+<script src="assets/marp-core.bundle.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ================================================================
+     定数
+     ================================================================ */
+
+  var STORAGE_KEY_MARKDOWN = 'iSlide.markdown';
+  var STORAGE_KEY_EDITOR_WIDTH = 'iSlide.editorWidth';
+  var RENDER_DELAY_MS = 300;
+  var SAVE_DELAY_MS = 600;
+
+  var SAMPLE_MARKDOWN = [
+    '---',
+    'marp: true',
+    'theme: default',
+    'paginate: true',
+    '---',
+    '',
+    '# iSlide',
+    '',
+    'Marp Markdownでスライドを作成できます。',
+    '',
+    '---',
+    '',
+    '## 2枚目',
+    '',
+    '- Markdownを入力',
+    '- 右側ですぐプレビュー',
+    '- `.md` として保存可能',
+    ''
+  ].join('\n');
+
+  /* ================================================================
+     要素参照
+     ================================================================ */
+
+  var editor = document.getElementById('editor');
+  var preview = document.getElementById('preview');
+  var errorbar = document.getElementById('errorbar');
+  var editorStatus = document.getElementById('editor-status');
+  var previewStatus = document.getElementById('preview-status');
+  var presenterHint = document.getElementById('presenter-hint');
+  var themeSelect = document.getElementById('theme-select');
+  var fileInput = document.getElementById('file-input');
+  var splitter = document.getElementById('splitter');
+  var editorPane = document.querySelector('.pane--editor');
+
+  /* ================================================================
+     状態
+     ================================================================ */
+
+  var marp = new window.iSlideMarpCore.Marp({
+    /* 絵文字を画像(twemoji CDN)へ置き換えないことで外部通信を発生させない */
+    emoji: { shortcode: true, unicode: false },
+    /* KaTeXは外部CSS/フォントを必要とするため、同梱できるMathJaxを使う */
+    math: 'mathjax',
+    /* 自動縮小用スクリプトを出力HTMLへインライン埋め込みする（既定値） */
+    script: true
+  });
+
+  var previewReady = false;
+  var pendingRender = null;
+  var lastRendered = null;
+  var currentFileName = '';
+  var slideIndex = 0;
+  var slideTotal = 0;
+  var isPresenting = false;
+  var renderTimer = 0;
+  var saveTimer = 0;
+
+  /* ================================================================
+     front matter（テーマ）の読み書き
+     Markdown自体をMarp互換のまま保つため、テーマはfront matterへ書く。
+     ================================================================ */
+
+  var FRONT_MATTER_PATTERN = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(\r?\n|$)/;
+
+  function readTheme(markdown) {
+    var frontMatter = markdown.match(FRONT_MATTER_PATTERN);
+    if (!frontMatter) return '';
+    var theme = frontMatter[1].match(/^theme[ \t]*:[ \t]*(\S+?)[ \t\r]*$/m);
+    return theme ? theme[1].replace(/^["']|["']$/g, '') : '';
+  }
+
+  function writeTheme(markdown, theme) {
+    var frontMatter = markdown.match(FRONT_MATTER_PATTERN);
+
+    if (!frontMatter) {
+      return '---\nmarp: true\ntheme: ' + theme + '\n---\n\n' + markdown;
+    }
+
+    var body = frontMatter[1];
+    var updated = /^theme[ \t]*:.*$/m.test(body)
+      ? body.replace(/^theme[ \t]*:.*$/m, function () { return 'theme: ' + theme; })
+      : (body === '' ? 'theme: ' + theme : body + '\ntheme: ' + theme);
+
+    /* front matter本文だけを差し替える（本文以降のMarkdownはそのまま保つ） */
+    var bodyStart = markdown.indexOf('\n') + 1;
+    return markdown.slice(0, bodyStart) + updated + markdown.slice(bodyStart + body.length);
+  }
+
+  /* ================================================================
+     CSSの後処理
+     ================================================================ */
+
+  var REMOTE_IMPORT_PATTERN = /@import\s+(?:url\(\s*)?["']?(?:https?:)?\/\/[^;]*;/gi;
+
+  /* gaiaテーマなどはWebフォントを @import で外部から読み込む。
+     実行時に外部通信しないという方針のため取り除き、
+     テーマが指定するフォールバックフォントで表示する。 */
+  function removeRemoteImports(css) {
+    return css.replace(REMOTE_IMPORT_PATTERN, '');
+  }
+
+  /* ================================================================
+     プレビュー
+     ================================================================ */
+
+  function initializePreview() {
+    var template = document.getElementById('preview-document');
+    preview.srcdoc = '<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"></head>'
+      + '<body>' + template.innerHTML + '</body></html>';
+  }
+
+  function sendToPreview(message) {
+    if (preview.contentWindow) {
+      preview.contentWindow.postMessage(message, '*');
+    }
+  }
+
+  function renderNow() {
+    var markdown = editor.value;
+    var rendered;
+
+    try {
+      rendered = marp.render(markdown);
+    } catch (error) {
+      /* front matterのYAMLが壊れている場合など。直前のプレビューは残す。 */
+      showError(error);
+      return;
+    }
+
+    clearError();
+    lastRendered = { html: rendered.html, css: removeRemoteImports(rendered.css) };
+
+    var message = { type: 'render', html: lastRendered.html, css: lastRendered.css };
+    if (previewReady) {
+      sendToPreview(message);
+    } else {
+      pendingRender = message;
+    }
+
+    syncThemeSelect(markdown);
+  }
+
+  function scheduleRender() {
+    window.clearTimeout(renderTimer);
+    renderTimer = window.setTimeout(renderNow, RENDER_DELAY_MS);
+  }
+
+  function syncThemeSelect(markdown) {
+    var theme = readTheme(markdown);
+    themeSelect.value = theme || 'default';
+    /* front matterに未知のテーマ名が書かれている場合はselectが空になるため戻す */
+    if (!themeSelect.value) themeSelect.value = 'default';
+  }
+
+  function showError(error) {
+    errorbar.textContent = 'Markdownを解析できませんでした: ' + (error && error.message ? error.message : String(error));
+    errorbar.classList.add('is-visible');
+  }
+
+  function clearError() {
+    errorbar.textContent = '';
+    errorbar.classList.remove('is-visible');
+  }
+
+  function updateEditorStatus() {
+    var lines = editor.value.length === 0 ? 0 : editor.value.split('\n').length;
+    editorStatus.textContent = lines + '行 / ' + editor.value.length + '文字';
+  }
+
+  function updatePreviewStatus() {
+    previewStatus.textContent = slideTotal > 0 ? slideTotal + '枚' : '';
+  }
+
+  /* ================================================================
+     一時保存（localStorage）
+     ================================================================ */
+
+  function loadStoredMarkdown() {
+    try {
+      return window.localStorage.getItem(STORAGE_KEY_MARKDOWN);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function storeMarkdown() {
+    try {
+      window.localStorage.setItem(STORAGE_KEY_MARKDOWN, editor.value);
+    } catch (error) {
+      /* プライベートモード等で保存できない場合は編集を妨げない */
+    }
+  }
+
+  function scheduleStore() {
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(storeMarkdown, SAVE_DELAY_MS);
+  }
+
+  /* ================================================================
+     ファイル入出力
+     ================================================================ */
+
+  function download(fileName, text, mimeType) {
+    var blob = new Blob([text], { type: mimeType + ';charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function baseFileName() {
+    if (currentFileName) {
+      return currentFileName.replace(/\.(md|markdown)$/i, '');
+    }
+    var heading = editor.value.match(/^#[ \t]+(.+)$/m);
+    if (heading) {
+      var name = heading[1].trim().replace(/[\\/:*?"<>|]/g, '').slice(0, 60);
+      if (name) return name;
+    }
+    return 'slides';
+  }
+
+  function openMarkdownFile(file) {
+    var reader = new FileReader();
+
+    reader.onload = function () {
+      /* 読み込んだ内容は変換せずそのままMarp Markdownとして扱う */
+      currentFileName = file.name;
+      editor.value = String(reader.result);
+      updateEditorStatus();
+      storeMarkdown();
+      renderNow();
+    };
+
+    reader.onerror = function () {
+      showError(new Error('ファイルを読み込めませんでした: ' + file.name));
+    };
+
+    reader.readAsText(file, 'utf-8');
+  }
+
+  /* ================================================================
+     HTML出力・印刷
+     出力したHTMLは単体でスライド表示でき、そのまま印刷/PDF化もできる。
+     ================================================================ */
+
+  function slideSize(html) {
+    var viewBox = html.match(/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/);
+    return viewBox
+      ? { width: viewBox[1], height: viewBox[2] }
+      : { width: '1280', height: '720' };
+  }
+
+  function buildStandaloneHtml(rendered, title, autoPrint) {
+    var size = slideSize(rendered.html);
+
+    var documentStyle = [
+      'html, body { margin: 0; padding: 0; }',
+      'body { background: #525659; }',
+      '.marpit { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 16px; }',
+      '.marpit > svg[data-marpit-svg] {',
+      '  display: block;',
+      '  width: 100%;',
+      '  max-width: ' + size.width + 'px;',
+      '  height: auto;',
+      '  background: #fff;',
+      '  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);',
+      '}',
+      '@page { size: ' + size.width + 'px ' + size.height + 'px; margin: 0; }',
+      '@media print {',
+      '  body { background: #fff; }',
+      '  .marpit { display: block; padding: 0; gap: 0; }',
+      '  .marpit > svg[data-marpit-svg] {',
+      '    width: ' + size.width + 'px;',
+      '    height: ' + size.height + 'px;',
+      '    max-width: none;',
+      '    box-shadow: none;',
+      '    break-after: page;',
+      '    page-break-after: always;',
+      '  }',
+      '  .marpit > svg[data-marpit-svg]:last-of-type { break-after: auto; page-break-after: auto; }',
+      '  .marpit > svg > foreignObject > section { break-before: auto; page-break-before: auto; }',
+      '}'
+    ].join('\n');
+
+    var printScript = autoPrint
+      ? '<script>window.addEventListener("load", function () { window.print(); });<\/script>'
+      : '';
+
+    return [
+      '<!DOCTYPE html>',
+      '<html lang="ja">',
+      '<head>',
+      '<meta charset="utf-8">',
+      '<meta name="viewport" content="width=device-width, initial-scale=1">',
+      '<title>' + escapeHtml(title) + '</title>',
+      '<style>',
+      rendered.css,
+      '</style>',
+      '<style>',
+      documentStyle,
+      '</style>',
+      '</head>',
+      '<body>',
+      rendered.html,
+      printScript,
+      '</body>',
+      '</html>',
+      ''
+    ].join('\n');
+  }
+
+  function escapeHtml(text) {
+    return text.replace(/[&<>"]/g, function (character) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[character];
+    });
+  }
+
+  function openPrintWindow() {
+    if (!lastRendered) return;
+
+    var html = buildStandaloneHtml(lastRendered, baseFileName(), true);
+    var url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+    var printWindow = window.open(url, '_blank');
+
+    if (!printWindow) {
+      showError(new Error('印刷用ウィンドウを開けませんでした。ポップアップの許可を確認してください。'));
+    }
+
+    window.setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+  }
+
+  /* ================================================================
+     プレゼン表示
+     ================================================================ */
+
+  function startPresentation() {
+    isPresenting = true;
+    document.body.classList.add('is-presenting');
+    sendToPreview({ type: 'present', presenting: true });
+    updatePresenterHint();
+
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(function () {
+        /* 全画面が拒否されても、編集UIを隠した表示は継続する */
+      });
+    }
+  }
+
+  function endPresentation() {
+    isPresenting = false;
+    document.body.classList.remove('is-presenting');
+    sendToPreview({ type: 'present', presenting: false });
+
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(function () {});
+    }
+  }
+
+  function moveSlide(delta) {
+    sendToPreview({ type: 'goto', index: slideIndex + delta });
+  }
+
+  function updatePresenterHint() {
+    presenterHint.textContent = (slideIndex + 1) + ' / ' + slideTotal + '　（← → 移動 / Esc 終了）';
+  }
+
+  function handlePresentationKey(key, shiftKey) {
+    if (key === 'Escape') {
+      endPresentation();
+    } else if (key === 'ArrowRight' || key === 'ArrowDown' || key === 'PageDown' || key === 'Enter') {
+      moveSlide(1);
+    } else if (key === 'ArrowLeft' || key === 'ArrowUp' || key === 'PageUp' || key === 'Backspace') {
+      moveSlide(-1);
+    } else if (key === ' ') {
+      moveSlide(shiftKey ? -1 : 1);
+    } else if (key === 'Home') {
+      sendToPreview({ type: 'goto', index: 0 });
+    } else if (key === 'End') {
+      sendToPreview({ type: 'goto', index: slideTotal - 1 });
+    }
+  }
+
+  /* ================================================================
+     分割バー
+     ================================================================ */
+
+  function initializeSplitter() {
+    var storedWidth = 0;
+
+    try {
+      storedWidth = Number(window.localStorage.getItem(STORAGE_KEY_EDITOR_WIDTH)) || 0;
+    } catch (error) {
+      storedWidth = 0;
+    }
+
+    if (storedWidth > 0) {
+      editorPane.style.width = storedWidth + 'px';
+    }
+
+    splitter.addEventListener('pointerdown', function (event) {
+      event.preventDefault();
+      splitter.setPointerCapture(event.pointerId);
+      document.body.classList.add('is-dragging');
+    });
+
+    splitter.addEventListener('pointermove', function (event) {
+      if (!splitter.hasPointerCapture(event.pointerId)) return;
+      var width = Math.min(Math.max(event.clientX, 240), window.innerWidth - 320);
+      editorPane.style.width = width + 'px';
+    });
+
+    splitter.addEventListener('pointerup', function (event) {
+      splitter.releasePointerCapture(event.pointerId);
+      document.body.classList.remove('is-dragging');
+      try {
+        window.localStorage.setItem(STORAGE_KEY_EDITOR_WIDTH, String(editorPane.offsetWidth));
+      } catch (error) {
+        /* 保存できなくてもレイアウトの操作自体は成立する */
+      }
+    });
+  }
+
+  /* ================================================================
+     イベント登録
+     ================================================================ */
+
+  function initializeEvents() {
+    editor.addEventListener('input', function () {
+      updateEditorStatus();
+      scheduleRender();
+      scheduleStore();
+    });
+
+    document.getElementById('btn-new').addEventListener('click', function () {
+      if (!window.confirm('編集中の内容を破棄して新規作成しますか？')) return;
+      currentFileName = '';
+      editor.value = SAMPLE_MARKDOWN;
+      updateEditorStatus();
+      storeMarkdown();
+      renderNow();
+      editor.focus();
+    });
+
+    document.getElementById('btn-open').addEventListener('click', function () {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function () {
+      if (fileInput.files && fileInput.files[0]) {
+        openMarkdownFile(fileInput.files[0]);
+      }
+      /* 同じファイルを続けて開けるように選択状態を消す */
+      fileInput.value = '';
+    });
+
+    document.getElementById('btn-save-md').addEventListener('click', function () {
+      /* 保存するのは編集中のMarp Markdownそのもの（独自形式へ変換しない） */
+      download(baseFileName() + '.md', editor.value, 'text/markdown');
+    });
+
+    document.getElementById('btn-export-html').addEventListener('click', function () {
+      if (!lastRendered) return;
+      download(baseFileName() + '.html', buildStandaloneHtml(lastRendered, baseFileName(), false), 'text/html');
+    });
+
+    document.getElementById('btn-print').addEventListener('click', openPrintWindow);
+
+    document.getElementById('btn-present').addEventListener('click', startPresentation);
+
+    themeSelect.addEventListener('change', function () {
+      var updated = writeTheme(editor.value, themeSelect.value);
+      if (updated !== editor.value) {
+        editor.value = updated;
+        updateEditorStatus();
+        storeMarkdown();
+      }
+      renderNow();
+    });
+
+    window.addEventListener('keydown', function (event) {
+      if (isPresenting) {
+        handlePresentationKey(event.key, event.shiftKey);
+        event.preventDefault();
+      }
+    });
+
+    document.addEventListener('fullscreenchange', function () {
+      /* 全画面をブラウザ側で解除した場合もプレゼン表示を終了する */
+      if (!document.fullscreenElement && isPresenting) {
+        endPresentation();
+      }
+    });
+
+    window.addEventListener('message', function (event) {
+      if (event.source !== preview.contentWindow) return;
+      var message = event.data;
+      if (!message || typeof message !== 'object') return;
+
+      if (message.type === 'ready') {
+        previewReady = true;
+        if (pendingRender) {
+          sendToPreview(pendingRender);
+          pendingRender = null;
+        }
+      } else if (message.type === 'position') {
+        slideIndex = message.index;
+        slideTotal = message.total;
+        updatePreviewStatus();
+        if (isPresenting) updatePresenterHint();
+      } else if (message.type === 'keydown') {
+        if (isPresenting) handlePresentationKey(message.key, message.shiftKey);
+      } else if (message.type === 'click') {
+        if (isPresenting) moveSlide(1);
+      }
+    });
+
+    window.addEventListener('beforeunload', storeMarkdown);
+  }
+
+  /* ================================================================
+     起動
+     ================================================================ */
+
+  function start() {
+    var stored = loadStoredMarkdown();
+    editor.value = stored === null ? SAMPLE_MARKDOWN : stored;
+
+    initializePreview();
+    initializeSplitter();
+    initializeEvents();
+    updateEditorStatus();
+    renderNow();
+  }
+
+  start();
+}());
+</script>
+
+</body>
+</html>

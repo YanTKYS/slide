@@ -1,0 +1,18 @@
+{
+  "name": "islide",
+  "version": "0.1.0",
+  "description": "Marp Markdownをブラウザ上で編集・プレビュー・出力する静的HTMLツール",
+  "private": true,
+  "scripts": {
+    "build": "node build/build.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YanTKYS/slide.git"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@marp-team/marp-core": "^4.4.0",
+    "esbuild": "^0.28.2"
+  }
+}
