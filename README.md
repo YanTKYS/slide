@@ -265,7 +265,7 @@ npm run build     # assets/marp-core.bundle.js を再生成
 | `build/build.mjs` | esbuild によるビルドスクリプト |
 | `.github/dependabot.yml` | Marp Core / esbuild の更新PRを作成するDependabot設定 |
 | `.github/workflows/verify-bundle.yml` | PR検証workflow（`npm ci && npm run build` を実行し、bundleの差分有無を確認） |
-| `.github/workflows/update-bundle.yml` | 手動実行（workflow_dispatch）でbundleを再生成し、指定branchへcommitするworkflow |
+| `.github/workflows/update-bundle.yml` | 手動実行（workflow_dispatch）でbundleを再生成し、指定branchへcommitするworkflow。`npm ci`/`npm run build`を実行するbuild job（`contents: read`）と、commit/pushのみを行うcommit job（`contents: write`）にjobを分離し、write権限を持つ実行コンテキストでは依存関係のコードを実行しない |
 
 `iSlide.html` は、`<style>`（アプリUIのCSS）、HTML（ツールバーとレイアウト）、プレビュー用iframeのテンプレート、`<script>`（アプリ本体）の順に構成しています。
 プレビューは iframe 内で描画し、親ページとは `postMessage` のみでやり取りします。これによりスライドのCSSがアプリUIへ影響せず、`file://` からの起動でも動作します。
