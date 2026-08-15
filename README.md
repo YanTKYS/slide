@@ -1,4 +1,4 @@
-# iSlide v0.1.0
+# iSlide v0.1.1
 
 Marp Markdown をブラウザ上で編集・プレビューし、`.md` / HTML として持ち出すための静的HTMLツールです。
 
@@ -189,6 +189,62 @@ iSlide 自身は、起動後に外部のAPI・CDNへ一切アクセスしませ�
 - AI API連携
 - 独自スライドエンジン / 独自テーマエディタ
 
+## Marp Core の更新
+
+Marp Core のバージョン更新は、GitHub上だけで完結する以下のフローで行います。ローカルにNode.js/npmが無くても実施できます。
+
+```text
+1. Dependabot が Marp Core（または esbuild）の更新PRを作成する
+2. PR検証workflow（Verify Marp Core bundle）が実行される
+   → package.json / package-lock.json は更新されたが bundle が古いままの場合は失敗する
+3. Actions タブから「Update Marp Core bundle」workflowを開き、
+   branch にDependabot PRのbranch名を指定して実行する
+4. bundleに差分があれば、同じPRへ `build: regenerate Marp Core bundle` として
+   自動でcommitが追加される（差分が無ければ何もコミットされない）
+5. PRのActionsが再実行され、Verify workflowが成功することを確認する
+6. 下記「更新後の確認項目」に沿ってiSlideの主要機能を手動確認する
+7. 問題なければ人がレビューし、マージする
+```
+
+Dependabot PRの自動approve・自動mergeは行いません。Marp CoreはiSlideのレンダリングエンジンそのものであり、表示やHTML構造が変わりうるため、最終判断は必ず人が行います。
+
+### ローカルでの更新（従来手順）
+
+GitHub Actionsを使わなくても、従来通りローカルで更新できます。「GitHub Actionsを使わないと更新できない」構成にはしていません。
+
+```bash
+npm install
+npm run build     # assets/marp-core.bundle.js を再生成
+```
+
+`package.json` の `@marp-team/marp-core` はバージョンを完全固定しています（例: `"4.4.0"`、範囲指定はしない）。更新後は `package.json` と `package-lock.json` の両方が新しいバージョンで整合していることを確認してください。
+
+### 更新後の確認項目
+
+Marp Core自体の出力に加えて、iSlideはMarp Core標準の出力へ以下の追加処理を行っています。更新時はこれらを重点的に回帰確認してください。
+
+- twemojiによる絵文字の外部画像取得を抑止し、フォント絵文字として表示している
+- `gaia` テーマのWebフォント `@import` を除去している
+- Marpのプレビューをiframe内で描画している
+- Marp Core が生成するscriptを（サンドボックス内で）再有効化している
+
+最低限、以下を確認してください。
+
+- 基本Markdownレンダリング
+- `---` によるスライド分割
+- front matter（`marp: true` など）
+- `paginate`
+- directives（`<!-- _class: lead -->` などスコープ付きディレクティブを含む）
+- テーマ: `default` / `gaia` / `uncover`
+- Markdownテーブル
+- コードブロック
+- 画像
+- プレゼン表示
+- HTML出力
+- 印刷 / PDF導線
+- ブラウザConsoleに致命的エラーが出ていないこと
+- iSlide自身から予期しない外部通信が発生していないこと（開発者ツールのNetworkタブで確認）
+
 ## 開発
 
 利用するだけであればビルドは不要です（`assets/marp-core.bundle.js` はリポジトリへ同梱済み）。
@@ -207,6 +263,9 @@ npm run build     # assets/marp-core.bundle.js を再生成
 | `assets/marp-core.bundle.js` | Marp Core のビルド済みバンドル（生成物） |
 | `build/entry.js` | バンドルのエントリポイント |
 | `build/build.mjs` | esbuild によるビルドスクリプト |
+| `.github/dependabot.yml` | Marp Core / esbuild の更新PRを作成するDependabot設定 |
+| `.github/workflows/verify-bundle.yml` | PR検証workflow（`npm ci && npm run build` を実行し、bundleの差分有無を確認） |
+| `.github/workflows/update-bundle.yml` | 手動実行（workflow_dispatch）でbundleを再生成し、指定branchへcommitするworkflow |
 
 `iSlide.html` は、`<style>`（アプリUIのCSS）、HTML（ツールバーとレイアウト）、プレビュー用iframeのテンプレート、`<script>`（アプリ本体）の順に構成しています。
 プレビューは iframe 内で描画し、親ページとは `postMessage` のみでやり取りします。これによりスライドのCSSがアプリUIへ影響せず、`file://` からの起動でも動作します。

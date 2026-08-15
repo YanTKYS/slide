@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    # package.json は @marp-team/marp-core と esbuild の2つの devDependencies しか
+    # 宣言していないため、Dependabot が更新対象にする直接依存もこの2つに限られる。
+    # allow で明示し、無関係な依存関係が紛れ込まないようにする。
+    allow:
+      - dependency-name: "@marp-team/marp-core"
+      - dependency-name: "esbuild"
+    # 依存ごとに個別のPRを作成させ（groupsは使わない）、Marp Core更新とesbuild更新の
+    # 目的が1つのPRに混ざらないようにする。
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "chore"
+      include: scope

@@ -1,0 +1,43 @@
+name: Verify Marp Core bundle
+
+# PRごとに「コミット済みの assets/marp-core.bundle.js が、現在の
+# package.json / package-lock.json から再生成した結果と一致しているか」だけを検証する。
+# ここでは生成物の自動コミットは行わない（それは workflow_dispatch の
+# Update Marp Core bundle workflow の役割）。
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: npm ci && npm run build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.2"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Marp Core bundle
+        run: npm run build
+
+      - name: Check bundle is up to date
+        run: |
+          if ! git diff --quiet -- assets/marp-core.bundle.js; then
+            echo "::error file=assets/marp-core.bundle.js::assets/marp-core.bundle.js is out of date. package.json / package-lock.json was updated (e.g. by Dependabot) but the bundle was not regenerated. Run the 'Update Marp Core bundle' workflow (workflow_dispatch) against this PR's branch, or run 'npm ci && npm run build' locally and commit the result."
+            git diff --stat -- assets/marp-core.bundle.js
+            exit 1
+          fi
+          echo "assets/marp-core.bundle.js is up to date."
