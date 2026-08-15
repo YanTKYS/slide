@@ -1,6 +1,6 @@
 {
   "name": "islide",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Marp Markdownをブラウザ上で編集・プレビュー・出力する静的HTMLツール",
   "private": true,
   "scripts": {
@@ -12,7 +12,7 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@marp-team/marp-core": "^4.4.0",
+    "@marp-team/marp-core": "4.4.0",
     "esbuild": "^0.28.2"
   }
 }

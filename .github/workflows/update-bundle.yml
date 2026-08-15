@@ -1,0 +1,57 @@
+name: Update Marp Core bundle
+
+# 手動実行専用（workflow_dispatch）。指定したbranch（通常はDependabotが作成した
+# 依存更新PRのbranch）をcheckoutし、npm ci && npm run build で
+# assets/marp-core.bundle.js を再生成し、差分があればそのbranchへ直接commit/pushする。
+#
+# pull_request_target は使わず、常にdefault branch上のこのworkflowを人が
+# 明示的に実行する構成にすることで、PR側のコードをwrite権限つきで実行する
+# 危険な構成を避けている。
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "更新対象のbranch名（例: Dependabotが作成したPRのbranch）"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  update-bundle:
+    name: npm ci && npm run build && commit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.2"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Marp Core bundle
+        run: npm run build
+
+      - name: Commit and push if bundle changed
+        env:
+          TARGET_BRANCH: ${{ inputs.branch }}
+        run: |
+          if git diff --quiet -- assets/marp-core.bundle.js; then
+            echo "assets/marp-core.bundle.js has no changes. Skipping commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/marp-core.bundle.js
+          git commit -m "build: regenerate Marp Core bundle"
+          git push origin "HEAD:refs/heads/${TARGET_BRANCH}"
