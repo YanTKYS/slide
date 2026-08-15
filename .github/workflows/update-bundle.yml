@@ -1,12 +1,21 @@
 name: Update Marp Core bundle
 
 # 手動実行専用（workflow_dispatch）。指定したbranch（通常はDependabotが作成した
-# 依存更新PRのbranch）をcheckoutし、npm ci && npm run build で
-# assets/marp-core.bundle.js を再生成し、差分があればそのbranchへ直接commit/pushする。
+# 依存更新PRのbranch）に対して bundle を再生成し、差分があればcommit/pushする。
 #
 # pull_request_target は使わず、常にdefault branch上のこのworkflowを人が
 # 明示的に実行する構成にすることで、PR側のコードをwrite権限つきで実行する
 # 危険な構成を避けている。
+#
+# さらに、job自体もbuild/commitの2段に分離している。
+#   - build job（contents: read）: 指定branchをcheckoutし、npm ci / npm run build
+#     を実行してbundleを再生成する。ここではDependabotが更新した依存関係・
+#     buildスクリプトを実行するが、write権限は持たない。
+#   - commit job（contents: write）: 指定branchをcheckoutし、buildが生成した
+#     bundleをartifact経由で受け取ってファイルを差し替え、commit/pushするだけ。
+#     npm ci / npm run build は実行しない（＝依存関係のコードを一切実行しない）。
+# こうすることで、write権限を持つ実行コンテキストで信頼できないbuildスクリプトが
+# 動くことがないようにしている。
 
 on:
   workflow_dispatch:
@@ -17,17 +26,20 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  update-bundle:
-    name: npm ci && npm run build && commit
+  build:
+    name: npm ci && npm run build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout target branch
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.branch }}
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -40,6 +52,31 @@ jobs:
 
       - name: Build Marp Core bundle
         run: npm run build
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: marp-core-bundle
+          path: assets/marp-core.bundle.js
+          retention-days: 1
+
+  commit:
+    name: Commit bundle if changed
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Download bundle artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: marp-core-bundle
+          path: assets
 
       - name: Commit and push if bundle changed
         env:
