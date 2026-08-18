@@ -425,8 +425,10 @@ body.is-presenting .presenter-hint { display: block; }
         render(message);
       } else if (message.type === 'present') {
         setPresenting(message.presenting);
-      } else if (message.type === 'goto') {
-        updateCurrent(message.index);
+      } else if (message.type === 'goto' || message.type === 'move') {
+        /* 相対移動(move)は、親が持つ位置ではなくiframe側の現在位置へ適用する。
+           連打しても位置通知の往復待ちで取りこぼしが起きない。 */
+        updateCurrent(message.type === 'move' ? currentIndex + message.delta : message.index);
         if (!document.body.classList.contains('is-presenting')) {
           scrollCurrentIntoView();
         }
@@ -462,6 +464,8 @@ body.is-presenting .presenter-hint { display: block; }
   var STORAGE_KEY_EDITOR_WIDTH = 'iSlide.editorWidth';
   var RENDER_DELAY_MS = 300;
   var SAVE_DELAY_MS = 600;
+  var MIN_EDITOR_WIDTH = 240;
+  var MIN_PREVIEW_WIDTH = 320;
 
   var SAMPLE_MARKDOWN = [
     '---',
@@ -521,6 +525,7 @@ body.is-presenting .presenter-hint { display: block; }
   var isPresenting = false;
   var renderTimer = 0;
   var saveTimer = 0;
+  var desiredEditorWidth = 0;
 
   /* ================================================================
      front matter（テーマ）の読み書き
@@ -536,11 +541,13 @@ body.is-presenting .presenter-hint { display: block; }
     return theme ? theme[1].replace(/^["']|["']$/g, '') : '';
   }
 
-  function writeTheme(markdown, theme) {
+  /* テーマ行を書き込むための「置換範囲」を返す。文字列全体ではなく範囲で返すのは、
+     textarea.setRangeText() へ渡してカーソル位置を保ったまま差し替えるため。 */
+  function themeEdit(markdown, theme) {
     var frontMatter = markdown.match(FRONT_MATTER_PATTERN);
 
     if (!frontMatter) {
-      return '---\nmarp: true\ntheme: ' + theme + '\n---\n\n' + markdown;
+      return { start: 0, end: 0, text: '---\nmarp: true\ntheme: ' + theme + '\n---\n\n' };
     }
 
     var body = frontMatter[1];
@@ -550,7 +557,7 @@ body.is-presenting .presenter-hint { display: block; }
 
     /* front matter本文だけを差し替える（本文以降のMarkdownはそのまま保つ） */
     var bodyStart = markdown.indexOf('\n') + 1;
-    return markdown.slice(0, bodyStart) + updated + markdown.slice(bodyStart + body.length);
+    return { start: bodyStart, end: bodyStart + body.length, text: updated };
   }
 
   /* ================================================================
@@ -590,7 +597,7 @@ body.is-presenting .presenter-hint { display: block; }
       rendered = marp.render(markdown);
     } catch (error) {
       /* front matterのYAMLが壊れている場合など。直前のプレビューは残す。 */
-      showError(error);
+      showError('Markdownを解析できませんでした: ' + (error && error.message ? error.message : String(error)));
       return;
     }
 
@@ -619,8 +626,10 @@ body.is-presenting .presenter-hint { display: block; }
     if (!themeSelect.value) themeSelect.value = 'default';
   }
 
-  function showError(error) {
-    errorbar.textContent = 'Markdownを解析できませんでした: ' + (error && error.message ? error.message : String(error));
+  /* 解析エラー以外（ファイル読み込み・ポップアップ抑止など）にも使うため、
+     文言は呼び出し側が組み立てる。 */
+  function showError(message) {
+    errorbar.textContent = message;
     errorbar.classList.add('is-visible');
   }
 
@@ -706,7 +715,7 @@ body.is-presenting .presenter-hint { display: block; }
     };
 
     reader.onerror = function () {
-      showError(new Error('ファイルを読み込めませんでした: ' + file.name));
+      showError('ファイルを読み込めませんでした: ' + file.name);
     };
 
     reader.readAsText(file, 'utf-8');
@@ -796,8 +805,10 @@ body.is-presenting .presenter-hint { display: block; }
     var url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
     var printWindow = window.open(url, '_blank');
 
-    if (!printWindow) {
-      showError(new Error('印刷用ウィンドウを開けませんでした。ポップアップの許可を確認してください。'));
+    if (printWindow) {
+      clearError();
+    } else {
+      showError('印刷用ウィンドウを開けませんでした。ポップアップの許可を確認してください。');
     }
 
     window.setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
@@ -831,11 +842,14 @@ body.is-presenting .presenter-hint { display: block; }
   }
 
   function moveSlide(delta) {
-    sendToPreview({ type: 'goto', index: slideIndex + delta });
+    /* 位置の加算はiframe側で行う。親のslideIndexは位置通知を受けるまで
+       古いままのため、ここで加算すると連打時に移動を取りこぼす。 */
+    sendToPreview({ type: 'move', delta: delta });
   }
 
   function updatePresenterHint() {
-    presenterHint.textContent = (slideIndex + 1) + ' / ' + slideTotal + '　（← → 移動 / Esc 終了）';
+    var position = slideTotal === 0 ? 0 : slideIndex + 1;
+    presenterHint.textContent = position + ' / ' + slideTotal + '　（← → 移動 / Esc 終了）';
   }
 
   function handlePresentationKey(key, shiftKey) {
@@ -858,18 +872,27 @@ body.is-presenting .presenter-hint { display: block; }
      分割バー
      ================================================================ */
 
+  /* プレビューが必ず残る幅へ収める。広い画面で保存した幅を狭い画面で復元したり、
+     ウィンドウを縮めたりしたときに、プレビューが潰れて見えなくなるのを防ぐ。 */
+  function clampEditorWidth(width) {
+    var max = Math.max(window.innerWidth - MIN_PREVIEW_WIDTH, Math.floor(window.innerWidth / 2));
+    return Math.min(Math.max(width, MIN_EDITOR_WIDTH), max);
+  }
+
+  function applyEditorWidth() {
+    if (desiredEditorWidth > 0) {
+      editorPane.style.width = clampEditorWidth(desiredEditorWidth) + 'px';
+    }
+  }
+
   function initializeSplitter() {
-    var storedWidth = 0;
-
     try {
-      storedWidth = Number(window.localStorage.getItem(STORAGE_KEY_EDITOR_WIDTH)) || 0;
+      desiredEditorWidth = Number(window.localStorage.getItem(STORAGE_KEY_EDITOR_WIDTH)) || 0;
     } catch (error) {
-      storedWidth = 0;
+      desiredEditorWidth = 0;
     }
 
-    if (storedWidth > 0) {
-      editorPane.style.width = storedWidth + 'px';
-    }
+    applyEditorWidth();
 
     splitter.addEventListener('pointerdown', function (event) {
       event.preventDefault();
@@ -879,8 +902,8 @@ body.is-presenting .presenter-hint { display: block; }
 
     splitter.addEventListener('pointermove', function (event) {
       if (!splitter.hasPointerCapture(event.pointerId)) return;
-      var width = Math.min(Math.max(event.clientX, 240), window.innerWidth - 320);
-      editorPane.style.width = width + 'px';
+      desiredEditorWidth = event.clientX;
+      applyEditorWidth();
     });
 
     splitter.addEventListener('pointerup', function (event) {
@@ -892,6 +915,9 @@ body.is-presenting .presenter-hint { display: block; }
         /* 保存できなくてもレイアウトの操作自体は成立する */
       }
     });
+
+    /* ウィンドウを縮めてもプレビューが残るよう再計算する */
+    window.addEventListener('resize', applyEditorWidth);
   }
 
   /* ================================================================
@@ -942,9 +968,11 @@ body.is-presenting .presenter-hint { display: block; }
     document.getElementById('btn-present').addEventListener('click', startPresentation);
 
     themeSelect.addEventListener('change', function () {
-      var updated = writeTheme(editor.value, themeSelect.value);
-      if (updated !== editor.value) {
-        editor.value = updated;
+      var edit = themeEdit(editor.value, themeSelect.value);
+      if (editor.value.slice(edit.start, edit.end) !== edit.text) {
+        /* value全体を入れ替えると編集中のカーソル位置が失われるため、
+           front matterの範囲だけを置き換える（'preserve'で選択位置を保つ）。 */
+        editor.setRangeText(edit.text, edit.start, edit.end, 'preserve');
         updateEditorStatus();
         storeMarkdown();
       }
