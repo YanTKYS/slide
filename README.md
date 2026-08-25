@@ -3,7 +3,7 @@
 Marp Markdown をブラウザ上で編集・プレビューし、`.md` / HTML として持ち出すための静的HTMLツールです。
 
 生成AIなどで作成した Marp Markdown を貼り付けるだけで、その場でスライドとして確認・修正できます。
-独自のスライド記法やファイル形式は用意していません。保存されるデータは **Marp Markdown そのもの** です。
+保存されるデータは **Marp Markdown そのもの** で、独自形式への変換は行いません。
 
 ```
 貼る → その場で見る → 修正する → .md として持ち出す
@@ -11,9 +11,9 @@ Marp Markdown をブラウザ上で編集・プレビューし、`.md` / HTML �
 
 ## 特長
 
-- **iSlide自身は外部通信を必要としません。** 起動後、iSlideが自ら外部API・CDN・Webフォントへアクセスすることはありません。社内ネットワークやオフライン端末でもそのまま使えます（Markdown中に外部URLの画像を書いた場合は、ブラウザがその画像を取得しに行きます。詳細は「外部通信について」参照）。
-- **スライド生成は [@marp-team/marp-core](https://github.com/marp-team/marp-core) を使用します。** 独自Markdownパーサーや独自スライドエンジンは実装していません。
-- **ビルド環境は不要です。** 配布物に必要なJavaScriptを同梱済みのため、利用端末に Node.js / npm は要りません。
+- **iSlide自身は外部通信を必要としません。** 起動後、iSlideが自ら外部API・CDN・Webフォントへアクセスすることはありません。社内ネットワークやオフライン端末でもそのまま使えます（詳細は「[外部通信について](#外部通信について)」）。
+- **スライド生成は [@marp-team/marp-core](https://github.com/marp-team/marp-core) を使用します。** Marp CLI / Marp for VS Code と同じレンダリングエンジンです。
+- **ビルド環境は不要です。** 必要なJavaScriptを同梱しているため、利用端末に Node.js / npm は要りません。
 
 ## 起動方法
 
@@ -38,7 +38,7 @@ assets/marp-core.bundle.js
 ┌──────────────────────────────────────────────┐
 │ iSlide                                       │
 │ [新規] [開く] [Markdown保存] [HTML出力]      │
-│                          [印刷] [プレゼン表示]│
+│ テーマ[default ▼]        [印刷] [プレゼン表示]│
 ├──────────────────────┬───────────────────────┤
 │ Markdown             │ Preview               │
 │                      │                       │
@@ -83,13 +83,9 @@ paginate: true
 ![w:400](images/photo.png)
 ```
 
-Marp の記法をそのまま利用できます。
-
-- `---` によるスライド区切り
-- YAML front matter / `marp: true` / `theme` / `paginate`
-- Marp directives（`<!-- _class: lead -->` などのコメント記法、スコープ付きディレクティブを含む）
-- Markdownテーブル、画像（`![w:400]` などのサイズ指定を含む）、コードブロック、リスト、リンクなど通常のMarkdown記法
-- `# <!-- fit -->` による見出しの自動縮小、数式（MathJax）
+[Marp の記法](https://marpit.marp.app/markdown)をそのまま利用できます。スライド区切り、front matter、
+Marp directives（`<!-- _class: lead -->` などのスコープ付きを含む）、テーブル、画像のサイズ指定（`![w:400]`）、
+コードブロック、`# <!-- fit -->` による見出しの自動縮小、数式（MathJax）などが利用できます。
 
 ### テーマ
 
@@ -97,8 +93,6 @@ Marp の記法をそのまま利用できます。
 
 適用されるテーマは **常に front matter の `theme`** です。ツールバーのテーマ選択を変更すると、その値が front matter の `theme:` 行へ書き込まれます（front matter が無い場合は新しく追加されます）。
 そのため、テーマを切り替えても Markdown は Marp 互換のまま保たれ、他のツールで開いても同じテーマで表示されます。
-
-独自テーマの登録機能は v0.1.0 では用意していません。
 
 ## `.md` の読み込みと保存
 
@@ -110,13 +104,8 @@ Marp の記法をそのまま利用できます。
 
 ### 保存
 
-「Markdown保存」ボタンで、編集中のMarkdownを `.md` としてダウンロードします。保存されるのはエディタの内容そのもので、独自形式への変換は行いません。
-
-保存した `.md` は以下でそのまま再利用できます。
-
-- iSlide
-- [Marp for VS Code](https://marketplace.visualstudio.com/items?itemName=marp-team.marp-vscode)
-- [Marp CLI](https://github.com/marp-team/marp-cli)
+「Markdown保存」ボタンで、編集中のMarkdownを `.md` としてダウンロードします。
+保存した `.md` は iSlide のほか、[Marp for VS Code](https://marketplace.visualstudio.com/items?itemName=marp-team.marp-vscode) や [Marp CLI](https://github.com/marp-team/marp-cli) でそのまま再利用できます。
 
 ファイル名は、読み込んだファイル名 → 最初の `# 見出し` → `slides` の順で決まります。
 
@@ -124,7 +113,7 @@ Marp の記法をそのまま利用できます。
 
 編集中のMarkdownはブラウザの localStorage へ自動保存され、次回起動時に復元されます。誤ってブラウザを閉じても編集内容は残ります。
 
-読み込んだ `.md` ファイル自体が書き換えられることはありません。ファイルとして残すには「Markdown保存」を実行してください。
+> **読み込んだ `.md` ファイル自体が書き換えられることはありません。** ファイルとして残すには「Markdown保存」を実行してください。
 
 ## HTML出力 / PDF出力
 
@@ -143,8 +132,6 @@ Marp の記法をそのまま利用できます。
 - 余白：なし
 - 背景のグラフィック：オン
 
-v0.1.0 では独自のPDF生成エンジンを持たず、ブラウザの印刷機能を利用します。
-
 ## プレゼン表示
 
 「プレゼン表示」ボタンで編集UIを隠し、スライドを画面いっぱいに1枚ずつ表示します。
@@ -160,14 +147,12 @@ v0.1.0 では独自のPDF生成エンジンを持たず、ブラウザの印刷�
 
 iSlide 自身は、起動後に外部のAPI・CDNへ一切アクセスしません。Marp Core は同梱済みのバンドルから読み込みます。
 
-これを保つため、Marp Core の既定動作のうち次の2点だけ設定を変えています。
+これを保つため、Marp Core の既定動作のうち次の2点だけ設定を変えています。いずれも Markdown の記法や互換性には影響せず、見た目のフォントのみが変わります。
 
 - **絵文字**：既定では絵文字を twemoji の画像（CDN）へ置き換えますが、これを無効にし、フォントの絵文字として表示します。
 - **テーマのWebフォント**：`gaia` テーマは Web フォントを `@import` で読み込みますが、この `@import` を取り除き、テーマが指定するフォールバックフォントで表示します。
 
 数式は外部リソースを必要としない MathJax で描画します。
-
-いずれも Markdown の記法や互換性には影響しません（見た目のフォントのみが変わります）。
 
 ### 注意：Markdown中に外部URLを書いた場合
 
@@ -179,19 +164,10 @@ iSlide 自身は、起動後に外部のAPI・CDNへ一切アクセスしませ�
 
 のような外部URLの画像やリンクを記述した場合、その取得はブラウザが通常のWebページと同様に行うため、外部通信が発生します。オフライン環境や外部通信を禁止したい環境で確認する場合は、画像を data URI で埋め込むか、ローカル/相対パスの画像を使ってください。
 
-## v0.1.0 で対応しないもの
-
-- PPTX出力（編集可能PPTXを含む）
-- Marp CLI サーバ連携
-- ユーザー認証 / クラウド保存 / 複数資料管理
-- 独自ファイル形式
-- 高機能なWYSIWYG編集
-- AI API連携
-- 独自スライドエンジン / 独自テーマエディタ
-
 ## Marp Core の更新
 
-Marp Core のバージョン更新は、GitHub上だけで完結する以下のフローで行います。ローカルにNode.js/npmが無くても実施できます。
+`assets/marp-core.bundle.js` はリポジトリへ同梱しているため、Marp Core を更新したときはバンドルの再生成が必要です。
+GitHub上だけで完結する以下のフローで行えます（ローカルにNode.js/npmは不要）。
 
 ```text
 1. Dependabot が Marp Core（または esbuild）の更新PRを作成する
@@ -208,54 +184,29 @@ Marp Core のバージョン更新は、GitHub上だけで完結する以下の�
 
 Dependabot PRの自動approve・自動mergeは行いません。Marp CoreはiSlideのレンダリングエンジンそのものであり、表示やHTML構造が変わりうるため、最終判断は必ず人が行います。
 
-### ローカルでの更新（従来手順）
+### ローカルで更新する
 
-GitHub Actionsを使わなくても、従来通りローカルで更新できます。「GitHub Actionsを使わないと更新できない」構成にはしていません。
+GitHub Actionsを使わず、ローカルでバンドルを再生成することもできます。
 
 ```bash
 npm install
 npm run build     # assets/marp-core.bundle.js を再生成
 ```
 
-`package.json` の `@marp-team/marp-core` はバージョンを完全固定しています（例: `"4.4.0"`、範囲指定はしない）。更新後は `package.json` と `package-lock.json` の両方が新しいバージョンで整合していることを確認してください。
+`package.json` の `@marp-team/marp-core` はバージョンを完全固定しています（例: `"4.4.0"`、範囲指定はしない）。同梱バンドルと依存関係の内容を常に一致させるためです。更新後は `package.json` と `package-lock.json` の両方が新しいバージョンで整合していることを確認してください。
 
 ### 更新後の確認項目
 
-Marp Core自体の出力に加えて、iSlideはMarp Core標準の出力へ以下の追加処理を行っています。更新時はこれらを重点的に回帰確認してください。
+iSlideはMarp Core標準の出力へ追加処理（twemojiの無効化、`@import` の除去、iframe内での描画、Marp Coreが生成するscriptの再有効化）を行っており、Marp Core側の変更で壊れやすい箇所です。更新時は次を手動で確認してください。
 
-- twemojiによる絵文字の外部画像取得を抑止し、フォント絵文字として表示している
-- `gaia` テーマのWebフォント `@import` を除去している
-- Marpのプレビューをiframe内で描画している
-- Marp Core が生成するscriptを（サンドボックス内で）再有効化している
-
-最低限、以下を確認してください。
-
-- 基本Markdownレンダリング
-- `---` によるスライド分割
-- front matter（`marp: true` など）
-- `paginate`
-- directives（`<!-- _class: lead -->` などスコープ付きディレクティブを含む）
+- 基本Markdownレンダリング / `---` によるスライド分割 / front matter / `paginate` / directives
 - テーマ: `default` / `gaia` / `uncover`
-- Markdownテーブル
-- コードブロック
-- 画像
-- プレゼン表示
-- HTML出力
-- 印刷 / PDF導線
+- テーブル / コードブロック / 画像 / 数式
+- プレゼン表示 / HTML出力 / 印刷（PDF）
 - ブラウザConsoleに致命的エラーが出ていないこと
 - iSlide自身から予期しない外部通信が発生していないこと（開発者ツールのNetworkタブで確認）
 
-## 開発
-
-利用するだけであればビルドは不要です（`assets/marp-core.bundle.js` はリポジトリへ同梱済み）。
-Marp Core のバージョンを更新する場合のみ、以下を実行してバンドルを作り直します。
-
-```bash
-npm install
-npm run build     # assets/marp-core.bundle.js を再生成
-```
-
-### 構成
+## 構成
 
 | パス | 役割 |
 | --- | --- |
@@ -264,8 +215,8 @@ npm run build     # assets/marp-core.bundle.js を再生成
 | `build/entry.js` | バンドルのエントリポイント |
 | `build/build.mjs` | esbuild によるビルドスクリプト |
 | `.github/dependabot.yml` | Marp Core / esbuild の更新PRを作成するDependabot設定 |
-| `.github/workflows/verify-bundle.yml` | PR検証workflow（`npm ci && npm run build` を実行し、bundleの差分有無を確認） |
-| `.github/workflows/update-bundle.yml` | 手動実行（workflow_dispatch）でbundleを再生成し、指定branchへcommitするworkflow。`npm ci`/`npm run build`を実行するbuild job（`contents: read`）と、commit/pushのみを行うcommit job（`contents: write`）にjobを分離し、write権限を持つ実行コンテキストでは依存関係のコードを実行しない |
+| `.github/workflows/verify-bundle.yml` | PR検証workflow（同梱バンドルが最新かを確認する） |
+| `.github/workflows/update-bundle.yml` | 手動実行でバンドルを再生成し、指定branchへcommitするworkflow（権限の分離方針はファイル冒頭のコメントを参照） |
 
 `iSlide.html` は、`<style>`（アプリUIのCSS）、HTML（ツールバーとレイアウト）、プレビュー用iframeのテンプレート、`<script>`（アプリ本体）の順に構成しています。
 プレビューは iframe 内で描画し、親ページとは `postMessage` のみでやり取りします。これによりスライドのCSSがアプリUIへ影響せず、`file://` からの起動でも動作します。

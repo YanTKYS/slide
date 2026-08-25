@@ -426,8 +426,7 @@ body.is-presenting .presenter-hint { display: block; }
       } else if (message.type === 'present') {
         setPresenting(message.presenting);
       } else if (message.type === 'goto' || message.type === 'move') {
-        /* 相対移動(move)は、親が持つ位置ではなくiframe側の現在位置へ適用する。
-           連打しても位置通知の往復待ちで取りこぼしが起きない。 */
+        /* 相対移動(move)はiframe側が持つ現在位置へ適用する（理由は親のmoveSlide） */
         updateCurrent(message.type === 'move' ? currentIndex + message.delta : message.index);
         if (!document.body.classList.contains('is-presenting')) {
           scrollCurrentIntoView();
@@ -456,9 +455,7 @@ body.is-presenting .presenter-hint { display: block; }
 (function () {
   'use strict';
 
-  /* ================================================================
-     定数
-     ================================================================ */
+  /* ---- 定数 ---- */
 
   var STORAGE_KEY_MARKDOWN = 'iSlide.markdown';
   var STORAGE_KEY_EDITOR_WIDTH = 'iSlide.editorWidth';
@@ -488,9 +485,7 @@ body.is-presenting .presenter-hint { display: block; }
     ''
   ].join('\n');
 
-  /* ================================================================
-     要素参照
-     ================================================================ */
+  /* ---- 要素参照 ---- */
 
   var editor = document.getElementById('editor');
   var preview = document.getElementById('preview');
@@ -503,16 +498,14 @@ body.is-presenting .presenter-hint { display: block; }
   var splitter = document.getElementById('splitter');
   var editorPane = document.querySelector('.pane--editor');
 
-  /* ================================================================
-     状態
-     ================================================================ */
+  /* ---- 状態 ---- */
 
   var marp = new window.iSlideMarpCore.Marp({
     /* 絵文字を画像(twemoji CDN)へ置き換えないことで外部通信を発生させない */
     emoji: { shortcode: true, unicode: false },
     /* KaTeXは外部CSS/フォントを必要とするため、同梱できるMathJaxを使う */
     math: 'mathjax',
-    /* 自動縮小用スクリプトを出力HTMLへインライン埋め込みする（既定値） */
+    /* 出力HTMLへ自動縮小スクリプトを埋め込む（プレビュー側のactivateScriptsで有効化する） */
     script: true
   });
 
@@ -527,10 +520,8 @@ body.is-presenting .presenter-hint { display: block; }
   var saveTimer = 0;
   var desiredEditorWidth = 0;
 
-  /* ================================================================
-     front matter（テーマ）の読み書き
-     Markdown自体をMarp互換のまま保つため、テーマはfront matterへ書く。
-     ================================================================ */
+  /* ---- front matter（テーマ）の読み書き ---- */
+  /* Markdown自体をMarp互換のまま保つため、テーマはfront matterへ書く。 */
 
   var FRONT_MATTER_PATTERN = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(\r?\n|$)/;
 
@@ -560,9 +551,7 @@ body.is-presenting .presenter-hint { display: block; }
     return { start: bodyStart, end: bodyStart + body.length, text: updated };
   }
 
-  /* ================================================================
-     CSSの後処理
-     ================================================================ */
+  /* ---- CSSの後処理 ---- */
 
   var REMOTE_IMPORT_PATTERN = /@import\s+(?:url\(\s*)?["']?(?:https?:)?\/\/[^;]*;/gi;
 
@@ -573,9 +562,7 @@ body.is-presenting .presenter-hint { display: block; }
     return css.replace(REMOTE_IMPORT_PATTERN, '');
   }
 
-  /* ================================================================
-     プレビュー
-     ================================================================ */
+  /* ---- プレビュー ---- */
 
   function initializePreview() {
     var template = document.getElementById('preview-document');
@@ -626,8 +613,6 @@ body.is-presenting .presenter-hint { display: block; }
     if (!themeSelect.value) themeSelect.value = 'default';
   }
 
-  /* 解析エラー以外（ファイル読み込み・ポップアップ抑止など）にも使うため、
-     文言は呼び出し側が組み立てる。 */
   function showError(message) {
     errorbar.textContent = message;
     errorbar.classList.add('is-visible');
@@ -647,9 +632,7 @@ body.is-presenting .presenter-hint { display: block; }
     previewStatus.textContent = slideTotal > 0 ? slideTotal + '枚' : '';
   }
 
-  /* ================================================================
-     一時保存（localStorage）
-     ================================================================ */
+  /* ---- 一時保存（localStorage） ---- */
 
   function loadStoredMarkdown() {
     try {
@@ -672,9 +655,7 @@ body.is-presenting .presenter-hint { display: block; }
     saveTimer = window.setTimeout(storeMarkdown, SAVE_DELAY_MS);
   }
 
-  /* ================================================================
-     ファイル入出力
-     ================================================================ */
+  /* ---- ファイル入出力 ---- */
 
   function download(fileName, text, mimeType) {
     var blob = new Blob([text], { type: mimeType + ';charset=utf-8' });
@@ -721,10 +702,8 @@ body.is-presenting .presenter-hint { display: block; }
     reader.readAsText(file, 'utf-8');
   }
 
-  /* ================================================================
-     HTML出力・印刷
-     出力したHTMLは単体でスライド表示でき、そのまま印刷/PDF化もできる。
-     ================================================================ */
+  /* ---- HTML出力・印刷 ---- */
+  /* 出力したHTMLは単体でスライド表示でき、そのまま印刷/PDF化もできる。 */
 
   function slideSize(html) {
     var viewBox = html.match(/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/);
@@ -814,9 +793,7 @@ body.is-presenting .presenter-hint { display: block; }
     window.setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
   }
 
-  /* ================================================================
-     プレゼン表示
-     ================================================================ */
+  /* ---- プレゼン表示 ---- */
 
   function startPresentation() {
     isPresenting = true;
@@ -868,9 +845,7 @@ body.is-presenting .presenter-hint { display: block; }
     }
   }
 
-  /* ================================================================
-     分割バー
-     ================================================================ */
+  /* ---- 分割バー ---- */
 
   /* プレビューが必ず残る幅へ収める。広い画面で保存した幅を狭い画面で復元したり、
      ウィンドウを縮めたりしたときに、プレビューが潰れて見えなくなるのを防ぐ。 */
@@ -916,13 +891,10 @@ body.is-presenting .presenter-hint { display: block; }
       }
     });
 
-    /* ウィンドウを縮めてもプレビューが残るよう再計算する */
     window.addEventListener('resize', applyEditorWidth);
   }
 
-  /* ================================================================
-     イベント登録
-     ================================================================ */
+  /* ---- イベント登録 ---- */
 
   function initializeEvents() {
     editor.addEventListener('input', function () {
@@ -954,7 +926,6 @@ body.is-presenting .presenter-hint { display: block; }
     });
 
     document.getElementById('btn-save-md').addEventListener('click', function () {
-      /* 保存するのは編集中のMarp Markdownそのもの（独自形式へ変換しない） */
       download(baseFileName() + '.md', editor.value, 'text/markdown');
     });
 
@@ -970,8 +941,7 @@ body.is-presenting .presenter-hint { display: block; }
     themeSelect.addEventListener('change', function () {
       var edit = themeEdit(editor.value, themeSelect.value);
       if (editor.value.slice(edit.start, edit.end) !== edit.text) {
-        /* value全体を入れ替えると編集中のカーソル位置が失われるため、
-           front matterの範囲だけを置き換える（'preserve'で選択位置を保つ）。 */
+        /* 'preserve' により、置換範囲の外にあるカーソル/選択位置は保たれる */
         editor.setRangeText(edit.text, edit.start, edit.end, 'preserve');
         updateEditorStatus();
         storeMarkdown();
@@ -987,7 +957,8 @@ body.is-presenting .presenter-hint { display: block; }
     });
 
     document.addEventListener('fullscreenchange', function () {
-      /* 全画面をブラウザ側で解除した場合もプレゼン表示を終了する */
+      /* ブラウザ側で全画面を解除された場合もプレゼン表示を終える。
+         自前のexitFullscreen経由ではisPresentingが既にfalseのため再入しない。 */
       if (!document.fullscreenElement && isPresenting) {
         endPresentation();
       }
@@ -1019,9 +990,7 @@ body.is-presenting .presenter-hint { display: block; }
     window.addEventListener('beforeunload', storeMarkdown);
   }
 
-  /* ================================================================
-     起動
-     ================================================================ */
+  /* ---- 起動 ---- */
 
   function start() {
     var stored = loadStoredMarkdown();
