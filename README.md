@@ -242,7 +242,8 @@ Copyright (c) 2026 YanTKYS
 これらは iSlide の MIT License の対象ではなく、それぞれ元のライセンスに従います。著作権表示とライセンス全文は [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) を参照してください。
 `assets/marp-core.bundle.js` を再配布する場合は、`THIRD-PARTY-NOTICES.txt` を併せて配布してください。
 
-「HTML出力」で生成したHTMLには、Marp Core が生成したスライドのCSS（MIT License, Copyright (c) 2018 Marp team）が含まれます。冒頭のコメントにその旨を記載しています。
+「HTML出力」で生成したHTMLには、Marp Core / Marpit が生成したスライドのCSS（MIT License, Copyright (c) 2018 Marp team）が含まれます。
+`default` テーマでは github-markdown-css（MIT）、`gaia` テーマでは highlight.js（BSD-3-Clause）のスタイルも含まれるため、これらの原ライセンス全文を、使用テーマに応じて出力HTMLの冒頭コメントに埋め込んでいます。出力HTMLを配布するときは、このコメントを残してください。
 
 ### スライドの内容について
 
