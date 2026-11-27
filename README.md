@@ -28,9 +28,12 @@ IIS などの静的Webサーバへ、以下をディレクトリ構成のまま�
 ```
 iSlide.html
 assets/marp-core.bundle.js
+LICENSE
+THIRD-PARTY-NOTICES.txt
 ```
 
 `https://<server>/<path>/iSlide.html` を開けば利用できます。サーバ側の特別な設定は不要です。
+`LICENSE` と `THIRD-PARTY-NOTICES.txt` はライセンス表示のために一緒に配置してください（「[ライセンス](#ライセンス)」）。
 
 ## 画面構成
 
@@ -205,6 +208,7 @@ iSlideはMarp Core標準の出力へ追加処理（twemojiの無効化、`@impor
 - プレゼン表示 / HTML出力 / 印刷（PDF）
 - ブラウザConsoleに致命的エラーが出ていないこと
 - iSlide自身から予期しない外部通信が発生していないこと（開発者ツールのNetworkタブで確認）
+- バンドルに含まれる依存ライブラリが増減・更新された場合は、`THIRD-PARTY-NOTICES.txt` の一覧とライセンス全文を更新すること（「[ライセンス](#ライセンス)」）
 
 ## 構成
 
@@ -212,6 +216,8 @@ iSlideはMarp Core標準の出力へ追加処理（twemojiの無効化、`@impor
 | --- | --- |
 | `iSlide.html` | アプリ本体（UI・エディタ・プレビュー・入出力） |
 | `assets/marp-core.bundle.js` | Marp Core のビルド済みバンドル（生成物） |
+| `LICENSE` | iSlide 自身のライセンス（MIT License） |
+| `THIRD-PARTY-NOTICES.txt` | バンドルに含まれる第三者ライブラリの著作権表示・ライセンス全文 |
 | `build/entry.js` | バンドルのエントリポイント |
 | `build/build.mjs` | esbuild によるビルドスクリプト |
 | `.github/dependabot.yml` | Marp Core / esbuild の更新PRを作成するDependabot設定 |
@@ -223,4 +229,22 @@ iSlideはMarp Core標準の出力へ追加処理（twemojiの無効化、`@impor
 
 ## ライセンス
 
-MIT
+### iSlide 自身
+
+iSlide が自ら作成した部分（`iSlide.html`、`build/`、`.github/`、本READMEなど）は [MIT License](LICENSE) です。
+Copyright (c) 2026 YanTKYS
+
+利用・改変・再配布の際は、`LICENSE` の著作権表示とライセンス文を含めてください。
+
+### 第三者のソフトウェア
+
+`assets/marp-core.bundle.js` は [@marp-team/marp-core](https://github.com/marp-team/marp-core)（MIT License）と、それが依存するライブラリ（MIT / MIT-0 / ISC / BSD / Apache-2.0）をまとめたビルド済みファイルです。
+これらは iSlide の MIT License の対象ではなく、それぞれ元のライセンスに従います。著作権表示とライセンス全文は [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) を参照してください。
+`assets/marp-core.bundle.js` を再配布する場合は、`THIRD-PARTY-NOTICES.txt` を併せて配布してください。
+
+「HTML出力」で生成したHTMLには、Marp Core / Marpit が生成したスライドのCSS（MIT License, Copyright (c) 2018 Marp team）が含まれます。
+`default` テーマでは github-markdown-css（MIT）、`gaia` テーマでは highlight.js（BSD-3-Clause）のスタイルも含まれるため、これらの原ライセンス全文を、使用テーマに応じて出力HTMLの冒頭コメントに埋め込んでいます。出力HTMLを配布するときは、このコメントを残してください。
+
+### スライドの内容について
+
+iSlide で作成・出力したスライドの内容（Markdown、画像など）の権利は、作成者に帰属します。iSlide のライセンスはその内容に及びません。
